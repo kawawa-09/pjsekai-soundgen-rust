@@ -41,6 +41,13 @@ impl Server {
                 color: 0x83ccd2,
                 url: "https://cc.sevenc7c.com".to_string(),
             })
+        } else if level_name.starts_with("local-") {
+            Ok(Server {
+                id: "ScoreSync".to_string(),
+                name: "ScoreSync".to_string(),
+                color: 0x545454,
+                url: "http://localhost:3939".to_string(),
+            })
         } else {
             Err(anyhow::anyhow!("サーバーを特定できませんでした。"))
         }
@@ -51,12 +58,17 @@ impl Server {
 
         debug!(&key);
 
-        let cache_path = CACHE_DIR.join(&key);
-        if let Ok(cache) = tokio::fs::read(&cache_path).await {
-            debug!("cache hit");
-            return Ok(cache);
+        // ScoreSyncの場合はキャッシュを使わず常に取得
+        if self.id != "ScoreSync" {
+            let cache_path = CACHE_DIR.join(&key);
+            if let Ok(cache) = tokio::fs::read(&cache_path).await {
+                debug!("cache hit");
+                return Ok(cache);
+            }
+            debug!("cache miss");
+        } else {
+            debug!("ScoreSync: always fetch from server (no cache)");
         }
-        debug!("cache miss");
 
         let client = reqwest::Client::new();
         let url = self.merge_url(&srl.url);
@@ -74,16 +86,27 @@ impl Server {
             .map_err(|e| anyhow::anyhow!("データの取得に失敗しました。: {}", e))?
             .to_vec();
 
-        tokio::fs::create_dir_all(CACHE_DIR.as_ref()).await?;
-        tokio::fs::write(&cache_path, &bytes).await?;
+        if self.id != "ScoreSync" {
+            tokio::fs::create_dir_all(CACHE_DIR.as_ref()).await?;
+            tokio::fs::write(CACHE_DIR.join(&key), &bytes).await?;
+        }
 
         Ok(bytes)
     }
 
     pub async fn fetch_level(&self, level_name: &str) -> Result<Level> {
         let client = reqwest::Client::new();
+
+        // ScoreSyncの場合は、prefixを除去
+        let api_level_name = if self.id == "ScoreSync" && level_name.starts_with("local-") {
+            &level_name["local-".len()..]
+        } else {
+            level_name
+        };
+
+        // 譜面情報を取得
         let level_info = client
-            .get(format!("{}/sonolus/levels/{}", self.url, level_name).as_str())
+            .get(format!("{}/sonolus/levels/{}", self.url, api_level_name).as_str())
             .send()
             .await
             .map_err(|e| anyhow::anyhow!("譜面情報の取得に失敗しました。: {}", e))?
@@ -111,8 +134,12 @@ impl Server {
     pub fn merge_url(&self, path: &str) -> String {
         if path.starts_with("http") {
             path.to_string()
+        } else if path.starts_with("/") {
+            let url = self.url.trim_end_matches('/');
+            format!("{}{}", url, path)
         } else {
-            format!("{}/{}", self.url, path).replace("//", "/")
+            let url = self.url.trim_end_matches('/');
+            format!("{}{}", url, path)
         }
     }
 

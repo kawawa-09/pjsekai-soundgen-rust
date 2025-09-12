@@ -10,6 +10,7 @@ pjsekai-soundgen-rust は、[Potato Leaves](https://github.com/sevenc-nanashi/po
 
 0. ffmpeg をインストールする。
 1. [Releases](https://github.com/sevenc-nanashi/pjsekai-soundgen-rust/releases)からpjsekai-soundgen-rust.exeをダウンロードする。
+2. ScoreSyncの場合`local-{譜面ファイル名}`と入力
 
 ## 利用規約
 
@@ -27,6 +28,8 @@ pjsekai-soundgen-rust は、[Potato Leaves](https://github.com/sevenc-nanashi/po
 プロセカ風譜面音声生成ツール：
   https://github.com/sevenc-nanashi/pjsekai-soundgen-rust
   作成：名無し｡ （ https://sevenc7c.com ）
+  https://github.com/Piliman22/pjsekai-soundgen-rust
+  フォーク：ぴぃまん　( https://pim4n-net.com/ )
 ```
 
 ## ライセンス
