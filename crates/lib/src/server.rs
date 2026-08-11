@@ -39,7 +39,7 @@ impl Server {
                 id: "chart_cyanvas".to_string(),
                 name: "Chart Cyanvas".to_string(),
                 color: 0x83ccd2,
-                url: "https://cc.sevenc7c.com".to_string(),
+                url: "https://cc.milkbun.org/".to_string(),
             })
         } else if level_name.starts_with("local-") {
             Ok(Server {
