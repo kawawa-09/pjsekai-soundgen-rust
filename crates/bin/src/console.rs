@@ -17,9 +17,10 @@ pub fn show_title() {
         ),
         format!("    {}pjsekai-soundgen-rust / Rust版プロセカ風譜面音声生成ツール{}", rgb!(0x00afc7), rgb!()),
         format!("    Version: {}{}{}", rgb!(0x0f6ea3), env!("CARGO_PKG_VERSION"), rgb!()),
-        format!("    Developed by {}名無し｡(@sevenc-nanashi){}", rgb!(0x48b0d5), rgb!()),
-        format!("    Forked bt {}Piliman22(@Piliman22){}", rgb!(0x588c3f), rgb!()),
+        format!("    Developed by {}名無し｡(@sevenc-nanashi)&Piliman22(@Piliman22){}", rgb!(0x48b0d5), rgb!()),
+        format!("    Forked bt {}kawawa(@kawawa-09){}", rgb!(0x588c3f), rgb!()),
         format!("    https://github.com/sevenc-nanashi/pjsekai-soundgen-rust"),
+        format!("    https://github.com/Piliman22/pjsekai-soundgen-rust")
         format!(
             "{}-------------------------------------------------------------------------------{}",
             rgb!(0xff5a91),
