@@ -10,35 +10,53 @@ use zip::ZipArchive;
 
 use crate::sonolus::EffectData;
 
-pub static SOUND_MAP: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|| {
+pub static SOUND_MAP: Lazy<HashMap<&'static str, &'static [&'static str]>> = Lazy::new(|| {
     HashMap::from([
-        ("NormalTapNote", "#PERFECT"),
-        ("CriticalTapNote", "Sekai Critical Tap"),
-        ("NormalFlickNote", "#PERFECT_ALTERNATIVE"),
-        ("CriticalFlickNote", "Sekai Critical Flick"),
-        ("NormalSlideStartNote", "#PERFECT"),
-        ("CriticalSlideStartNote", "#PERFECT"),
-        ("NormalSlideEndNote", "#PERFECT"),
-        ("CriticalSlideEndNote", "#PERFECT"),
-        ("NormalSlideEndFlickNote", "#PERFECT_ALTERNATIVE"),
-        ("CriticalSlideEndFlickNote", "Sekai Critical Flick"),
-        ("NormalSlideTickNote", "Sekai Tick"),
-        ("CriticalSlideTickNote", "Sekai Critical Tick"),
-        ("NormalAttachedSlideTickNote", "Sekai Tick"),
-        ("CriticalAttachedSlideTickNote", "Sekai Critical Tick"),
-        ("NormalTraceNote", "Sekai Normal Trace"),
-        ("CriticalTraceNote", "Sekai Critical Trace"),
-        ("NormalTraceFlickNote", "#PERFECT_ALTERNATIVE"),
-        ("CriticalTraceFlickNote", "Sekai Critical Flick"),
-        ("NonDirectionalTraceFlickNote", "#PERFECT_ALTERNATIVE"),
-        ("NormalTraceSlideStartNote", "Sekai Normal Trace"),
-        ("CriticalTraceSlideStartNote", "Sekai Critical Trace"),
-        ("NormalTraceSlideEndNote", "Sekai Normal Trace"),
-        ("CriticalTraceSlideEndNote", "Sekai Critical Trace"),
+        ("NormalTapNote", &["#PERFECT"][..]),
+        ("CriticalTapNote", &["Sekai Critical Tap"][..]),
+        ("NormalFlickNote", &["#PERFECT_ALTERNATIVE"][..]),
+        ("CriticalFlickNote", &["Sekai Critical Flick"][..]),
+        ("NormalSlideStartNote", &["#PERFECT"][..]),
+        ("NormalHeadTapNote", &["#PERFECT"][..]),
+        ("CriticalSlideStartNote", &["#PERFECT"][..]),
+        ("CriticalHeadTapNote", &["#PERFECT"][..]),
+        ("NormalSlideEndNote", &["#PERFECT"][..]),
+        ("NormalTailReleaseNote", &["#PERFECT"][..]),
+        ("CriticalSlideEndNote", &["#PERFECT"][..]),
+        ("CriticalTailReleaseNote", &["#PERFECT"][..]),
+        ("NormalSlideEndFlickNote", &["#PERFECT_ALTERNATIVE"][..]),
+        ("NormalTailFlickNote", &["#PERFECT_ALTERNATIVE"][..]),
+        ("CriticalSlideEndFlickNote", &["Sekai Critical Flick"][..]),
+        ("CriticalTailFlickNote", &["Sekai Critical Flick"][..]),
+        ("NormalTickNote", &["Sekai Tick"][..]),
+        ("CriticalTickNote", &["Sekai Critical Tick"][..]),
+        ("NormalAttachedSlideTickNote", &["Sekai Tick"][..]),
+        ("CriticalAttachedSlideTickNote", &["Sekai Critical Tick"][..]),
+        ("NormalTraceNote", &["Sekai Trace", "Sekai Normal Trace"][..]),
+        ("CriticalTraceNote", &["Sekai Critical Trace"][..]),
+        ("NormalTraceFlickNote", &["#PERFECT_ALTERNATIVE"][..]),
+        ("NormalTailTraceFlickNote", &["#PERFECT_ALTERNATIVE"][..]),
+        ("CriticalTraceFlickNote", &["Sekai Critical Flick"][..]),
+        ("CriticalTailTraceFlickNote", &["Sekai Critical Flick"][..]),
+        ("NonDirectionalTraceFlickNote", &["#PERFECT_ALTERNATIVE"][..]),
+        ("NormalTraceSlideStartNote", &["Sekai Trace", "Sekai Normal Trace"][..]),
+        ("NormalHeadTraceNote", &["Sekai Trace", "Sekai Normal Trace"][..]),
+        ("CriticalTraceSlideStartNote", &["Sekai Critical Trace"][..]),
+        ("CriticalHeadTraceNote", &["Sekai Critical Trace"][..]),
+        ("NormalTraceSlideEndNote", &["Sekai Trace", "Sekai Normal Trace"][..]),
+        ("NormalTailTraceNote", &["Sekai Trace", "Sekai Normal Trace"][..]),
+        ("CriticalTraceSlideEndNote", &["Sekai Critical Trace"][..]),
+        ("CriticalTailTraceNote", &["Sekai Critical Trace"][..]),
     ])
 });
-pub static LOOP_SOUND_MAP: Lazy<HashMap<&'static str, &'static str>> =
-    Lazy::new(|| HashMap::from([("NormalSlideConnector", "#HOLD"), ("CriticalSlideConnector", "Sekai Critical Hold")]));
+pub static LOOP_SOUND_MAP: Lazy<HashMap<&'static str, &'static [&'static str]>> = Lazy::new(|| {
+    HashMap::from([
+        ("NormalSlideConnector", &["#HOLD"][..]),
+        ("NormalConnector", &["#HOLD"][..]),
+        ("CriticalSlideConnector", &["Sekai Critical Hold"][..]),
+        ("CriticalConnector", &["Sekai Critical Hold"][..]),
+    ])
+});
 
 #[derive(Debug, Clone)]
 pub struct Sound {
