@@ -81,11 +81,8 @@ Proseca-style chart audio generation tool:
   Forked by: Kawarisu ( https://www.youtube.com/@kawa-risu )
 ```
 ### TODO
- - Next Sekai Engine
- - Implement Next Rush and + Engine
+> - Compatible with Score Maker
 > - Servers planned for support
->  - `UnCh-`: [UntitledCharts](https://untitledcharts.com/)
->  - `sss-`: [Sbuga’s Sonolus Server](https://sonolus.sbuga.com/)
 >  - `sekai-best-`: [Sekai Viewer](https://sonolus.sekai.best/)
 
 ### License
@@ -162,11 +159,8 @@ pjsekai-soundgen-rust は、様々なPJSKサーバーから音声を生成する
   フォーク：Kawarisu　（　https://www.youtube.com/@kawa-risu　）
 ```
 ### TODO
- - Next Sekaiエンジン
- - Next Rush , + エンジンを実装する
+> - 譜面メーカーに対応
 > - 対応予定のあるサーバー
->  - `UnCh-`：[UntitledCharts](https://untitledcharts.com/)
->  - `sss-`：[SbugaのSonolusサーバー](https://sonolus.sbuga.com/)
 >  - `sekai-best-`：[Sekai Viewer](https://sonolus.sekai.best/)
 
 ### ライセンス
