@@ -27,12 +27,12 @@ static CACHE_DIR: Lazy<Box<Path>> = Lazy::new(|| {
 
 impl Server {
     pub fn guess(level_name: &str) -> Result<Server> {
-        if level_name.starts_with("ptlv-") {
+        if level_name.starts_with("frpt-") {
             Ok(Server {
                 id: "potato_leaves".to_string(),
                 name: "Potato Leaves".to_string(),
                 color: 0x88cb7f,
-                url: "https://ptlv.sevenc7c.com".to_string(),
+                url: "https://ptlv.milkbun.org".to_string(),
             })
         } else if level_name.starts_with("chcy-") {
             Ok(Server {
