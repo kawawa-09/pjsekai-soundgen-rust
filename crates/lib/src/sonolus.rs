@@ -1,60 +1,51 @@
 use serde::{Deserialize, Serialize};
-
 #[derive(Serialize, Deserialize)]
 pub struct Srl {
-    pub hash: String,
+    // sekai-best等、実ファイルを直接指すSrlにはhashが無いことがあるためOption化
+    pub hash: Option<String>,
     pub url: String,
 }
-
 #[derive(Serialize, Deserialize)]
 pub struct LevelListResponse {
     pub items: Vec<LevelInfo>,
     #[serde(rename = "pageCount")]
     pub page_count: i32,
 }
-
 #[derive(Serialize, Deserialize)]
 pub struct ItemResponse<T> {
     pub item: T,
 }
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LevelEntity {
     pub archetype: String,
     pub data: Vec<LevelEntityData>,
     pub name: Option<String>,
 }
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LevelEntityData {
     pub name: String,
     pub value: Option<f32>,
     pub r#ref: Option<String>,
 }
-
 #[derive(Serialize, Deserialize)]
 pub struct EffectData {
     pub clips: Vec<EffectClip>,
 }
-
 #[derive(Serialize, Deserialize)]
 pub struct EffectClip {
     pub name: String,
     pub filename: String,
 }
-
 impl LevelEntity {
     pub fn get_value(&self, key: &str) -> Option<f32> {
         for data in self.data.iter() {
             if data.name == key {
                 data.value?;
-
                 return Some(data.value.unwrap());
             }
         }
         None
     }
-
     pub fn get_ref_raw(&self, key: &str) -> Option<String> {
         for data in self.data.iter() {
             if data.name == key {
@@ -64,7 +55,6 @@ impl LevelEntity {
         }
         None
     }
-
     pub fn get_ref(&self, entities: &[LevelEntity], key: &str) -> Option<LevelEntity> {
         let ref_raw = self.get_ref_raw(key)?;
         for entity in entities.iter() {
@@ -75,14 +65,12 @@ impl LevelEntity {
         None
     }
 }
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LevelData {
     #[serde(rename = "bgmOffset")]
     pub bgm_offset: f32,
     pub entities: Vec<LevelEntity>,
 }
-
 #[derive(Serialize, Deserialize)]
 pub struct LevelInfo {
     pub title: String,
@@ -94,13 +82,11 @@ pub struct LevelInfo {
     pub data: Srl,
     pub engine: EngineInfo,
 }
-
 #[derive(Serialize, Deserialize)]
 pub struct EngineInfo {
     pub version: i32,
     pub effect: EffectInfo,
 }
-
 #[derive(Serialize, Deserialize)]
 pub struct EffectInfo {
     pub audio: Srl,
