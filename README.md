@@ -3,16 +3,16 @@
 pjsekai-soundgen-rust is a tool that generates audio from various PJSK servers.
 
 
-###  Server List
+###  List of Servers
 >
- > - [Potato Leaves Archive `frpt-` ](https://ptlv.milkbun.org/)
- > - [Chart Cyanvas Archive `chcy-` ](https://cc.milkbun.org/)
- > - ScoreSync `local-`
+ > - `frpt-`: [Potato Leaves Archive](https://ptlv.milkbun.org/)
+ > - `chcy-`: [Chart Cyanvas Archive](https://cc.milkbun.org/)
+ > - `local-`: ScoreSync
 
 > [!WARNING]
 > The following servers are not currently supported
 >
->  > [Chart Cyanvas  Offshoot Server](https://chart-cyanvas.com/)
+>  > [Chart Cyanvas Fork Server](https://chart-cyanvas.com/)
 >
 > >  ScoreSync Modern
 
@@ -55,16 +55,22 @@ Proseca-style chart audio generation tool:
   Created by: Anonymous. ( https://sevenc7c.com )
   https://github.com/Piliman22/pjsekai-soundgen-rust
   Forked by: Piman ( https://pim4n-net.com/ )
-　https://github.com/kawawa-09/pjsekai-soundgen-rust
-  Forked by: Kawarisu (https://www.youtube.com/@kawa-risu)
+  https://github.com/kawawa-09/pjsekai-soundgen-rust
+  Forked by: Kawarisu ( https://www.youtube.com/@kawa-risu )
 ```
+### TODO
+ - Next Sekai Engine
+ - Implement Next Rush and + Engine
+> - Servers planned for support
+>  - `UnCh-`: [UntitledCharts](https://untitledcharts.com/)
+>  - `sss-`: [Sbuga’s Sonolus Server](https://sonolus.sbuga.com/)
+>  - `sekai-best-`: [Sekai Viewer](https://sonolus.sekai.best/)
 
 ### License
 
 The source code is released under the GPLv3.
 
-
-`Translated with DeepL.com (free version)`
+Translated with DeepL.com (free version)
 
 ## Rust版プロセカ風譜面音声生成ツール
 
@@ -73,14 +79,14 @@ pjsekai-soundgen-rust は、様々なPJSKサーバーから音声を生成する
 
 ###  サーバー一覧
 > 
- > - [Potato Leaves Archive `frpt-` ](https://ptlv.milkbun.org/)
- > - [Chart Cyanvas Archive `chcy-` ](https://cc.milkbun.org/)
- > - ScoreSync `local-` 
+ > - `frpt-`：[Potato Leaves Archive](https://ptlv.milkbun.org/)
+ > - `chcy-`：[Chart Cyanvas Archive](https://cc.milkbun.org/)
+ > - `local-` ：ScoreSync
 
 > [!WARNING]
 > 以下のサーバーは現在は対応していません
 > 
->  > [Chart Cyanvas  Offshoot Server](https://chart-cyanvas.com/)
+>  > [Chart Cyanvas  分岐サーバー](https://chart-cyanvas.com/)
 > 
 > >  ScoreSync Modern
 
@@ -127,6 +133,13 @@ pjsekai-soundgen-rust は、様々なPJSKサーバーから音声を生成する
 　https://github.com/kawawa-09/pjsekai-soundgen-rust
   フォーク：Kawarisu　（　https://www.youtube.com/@kawa-risu　）
 ```
+### TODO
+ - Next Sekaiエンジン
+ - Next Rush , + エンジンを実装する
+> - 対応予定のあるサーバー
+>  - `UnCh-`：[UntitledCharts](https://untitledcharts.com/)
+>  - `sss-`：[SbugaのSonolusサーバー](https://sonolus.sbuga.com/)
+>  - `sekai-best-`：[Sekai Viewer](https://sonolus.sekai.best/)
 
 ### ライセンス
 
