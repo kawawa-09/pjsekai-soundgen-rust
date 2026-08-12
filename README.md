@@ -1,71 +1,122 @@
-### en
-# pjsekai-soundgen-rust
+## A Rust-Based “Proseca”-Style Chart Audio Generator
 
-`pjsekai-soundgen-rust` is a tool that generates audio from chart files, such as those from [Potato Leaves](https://github.com/sevenc-nanashi/potato_leaves) or [Chart Cyanvas Archive](https://cc.milkbun.org/).
+pjsekai-soundgen-rust is a tool that generates audio from various PJSK servers.
 
-## Requirements
 
-- [ffmpeg](https://ffmpeg.org/) (must be in your system PATH)
+###  Server List
+>
+ > - [Potato Leaves Archive `frpt-` ](https://ptlv.milkbun.org/)
+ > - [Chart Cyanvas Archive `chcy-` ](https://cc.milkbun.org/)
+ > - ScoreSync `local-`
 
-## Usage
+> [!WARNING]
+> The following servers are not currently supported
+>
+>  > [Chart Cyanvas  Offshoot Server](https://chart-cyanvas.com/)
+>
+> >  ScoreSync Modern
+
+> [!CAUTION]
+> ## Prerequisites
+> - [ffmpeg in your PATH](https://ffmpeg.org/)
+
+
+### How to Use
 
 0. Install ffmpeg.
-1. Download `pjsekai-soundgen-rust.exe` from the [Releases](https://github.com/sevenc-nanashi/pjsekai-soundgen-rust/releases) page.
-2. For ScoreSync, enter `local-{chart_file_name}`.
-3. The result will be generated in the `dist` folder.
+1. Download pjsekai-soundgen-rust.zip from [Releases](https://github.com/sevenc-nanashi/pjsekai-soundgen-rust/releases).
+3. Enter the prefix-{chart ID}.
 
-## Terms of Use
+> [!NOTE]
+> For most servers, enter `prefix-{chart ID}`
+ > - [Potato Leaves Archive `frpt-` ](https://ptlv.milkbun.org/)
+ > - [Chart Cyanvas Archive `chcy-` ](https://cc.milkbun.org/)
+ > - ScoreSync `local-`
 
-Please include a statement in the video description (or similar location) that lists the following information about the creator (Nanashi):
+> [!TIP]
+> For ScoreSync, enter `local-{chart filename}`
 
-- Name (`名無し｡`)
-- Link to this repository
-- Link to `https://sevenc7c.com`
+4. The results will be generated in the `dist` directory
 
-#### Example
+### Terms of Use
+
+Please include the following information about me (=Anonymous.) in the video description or similar section:
+```
+- Name (Anonymous.)
+- A link to this repository
+- A link to https://sevenc7c.com
+```
+
+### Example
 
 ```
-Project Sekai-style chart audio generation tool:
+Proseca-style chart audio generation tool:
   https://github.com/sevenc-nanashi/pjsekai-soundgen-rust
-  Created by: 名無し｡ ( https://sevenc7c.com )
+  Created by: Anonymous. ( https://sevenc7c.com )
   https://github.com/Piliman22/pjsekai-soundgen-rust
-  Fork by: ぴぃまん ( https://pim4n-net.com/ )
-  https://github.com/kawawa-09/pjsekai-soundgen-rust
-  Fork by: Kawarisu ( https://www.youtube.com/@kawa-risu )
+  Forked by: Piman ( https://pim4n-net.com/ )
+　https://github.com/kawawa-09/pjsekai-soundgen-rust
+  Forked by: Kawarisu (https://www.youtube.com/@kawa-risu)
 ```
 
-## License
+### License
 
-The source code is released under the GPLv3 license.
+The source code is released under the GPLv3.
 
 
-### jp 
-# Rust版プロセカ風譜面音声生成ツール
+`Translated with DeepL.com (free version)`
 
-pjsekai-soundgen-rust は、[Potato Leaves](https://github.com/sevenc-nanashi/potato_leaves)や[Chart Cyanvas Archive](https://cc.milkbun.org/)、の譜面から音声を生成するツールです。
+## Rust版プロセカ風譜面音声生成ツール
 
-## 必須事項
+pjsekai-soundgen-rust は、様々なPJSKサーバーから音声を生成するツールです。
 
-- [PATH 上の ffmpeg](https://ffmpeg.org/)
 
-## 利用方法
+###  サーバー一覧
+> 
+ > - [Potato Leaves Archive `frpt-` ](https://ptlv.milkbun.org/)
+ > - [Chart Cyanvas Archive `chcy-` ](https://cc.milkbun.org/)
+ > - ScoreSync `local-` 
+
+> [!WARNING]
+> 以下のサーバーは現在は対応していません
+> 
+>  > [Chart Cyanvas  Offshoot Server](https://chart-cyanvas.com/)
+> 
+> >  ScoreSync Modern
+
+> [!CAUTION]
+> ## 必須事項
+> - [PATH 上の ffmpeg](https://ffmpeg.org/)
+
+
+### 利用方法
 
 0. ffmpeg をインストールする。
-1. [Releases](https://github.com/sevenc-nanashi/pjsekai-soundgen-rust/releases)からpjsekai-soundgen-rust.exeをダウンロードする。
-2. ScoreSyncの場合`local-{譜面ファイル名}`と入力
-3. dist内に結果が生成される
+1. [Releases](https://github.com/sevenc-nanashi/pjsekai-soundgen-rust/releases)からpjsekai-soundgen-rust.zipをダウンロードする。
+3.接頭辞-{譜面ID}と入力する。
 
-## 利用規約
+> [!NOTE]  
+> ほとんどのサーバーの場合`接頭辞-{譜面ID}`と入力
+ > - [Potato Leaves Archive `frpt-` ](https://ptlv.milkbun.org/)
+ > - [Chart Cyanvas Archive `chcy-` ](https://cc.milkbun.org/)
+ > - ScoreSync `local-` 
+
+> [!TIP]
+> ScoreSyncの場合`local-{譜面ファイル名}`と入力
+
+4. dist内に結果が生成される
+
+### 利用規約
 
 動画の概要欄などに、自分（=名無し｡）の
-
-- 名前（`名無し｡`）
+```
+- 名前（名無し｡）
 - このリポジトリへのリンク
-- `https://sevenc7c.com`へのリンク
-
+- https://sevenc7c.com へのリンク
+```
 が含まれている文章を載せて下さい。
 
-#### 例
+### 例
 
 ```
 プロセカ風譜面音声生成ツール：
@@ -77,6 +128,6 @@ pjsekai-soundgen-rust は、[Potato Leaves](https://github.com/sevenc-nanashi/po
   フォーク：Kawarisu　（　https://www.youtube.com/@kawa-risu　）
 ```
 
-## ライセンス
+### ライセンス
 
 ソースコードはGPLv3で公開されています。
