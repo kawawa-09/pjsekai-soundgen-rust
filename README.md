@@ -1,4 +1,13 @@
-[En](https://github.com/kawawa-09/pjsekai-soundgen-rust#pjsekai-soundgen-rust) / [Jp](https://github.com/kawawa-09/pjsekai-soundgen-rust#rust%E7%89%88%E3%83%97%E3%83%AD%E3%82%BB%E3%82%AB%E9%A2%A8%E8%AD%9C%E9%9D%A2%E9%9F%B3%E5%A3%B0%E7%94%9F%E6%88%90%E3%83%84%E3%83%BC%E3%83%AB)
+<p align="center">
+  <a href="pjsekai-soundgen-rust"><strong>English</strong></a> | <a href="#rust%E7%89%88%E3%83%97%E3%83%AD%E3%82%BB%E3%82%AB%E9%A2%A8%E8%AD%9C%E9%9D%A2%E9%9F%B3%E5%A3%B0%E7%94%9F%E6%88%90%E3%83%84%E3%83%BC%E3%83%AB"><strong>日本語</strong></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/kawawa-09/pjsekai-soundgen-rust/blob/main/LICENSE"><img src="https://img.shields.io/github/license/kawawa-09/pjsekai-soundgen-rust" alt="License"></a> 
+  <a href="https://github.com/kawawa-09/pjsekai-soundgen-rust/releases/"><img src="https://img.shields.io/github/downloads/kawawa-09/pjsekai-soundgen-rust/total" alt="Releases"></a> 
+  <a href="https://github.com/kawawa-09/pjsekai-soundgen-rust/stargazers"><img src="https://img.shields.io/github/stars/kawawa-09/pjsekai-soundgen-rust?style=flat&amp;color=yellow" alt="Stargazers"></a>
+</p>
+
 ## pjsekai-soundgen-rust
 
 [Latest Release](https://github.com/kawawa-09/pjsekai-soundgen-rust/releases/latest)
