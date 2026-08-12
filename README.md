@@ -24,6 +24,9 @@ pjsekai-soundgen-rust is a tool that generates audio from various PJSK servers.
 >
  > - `frpt-`: [Potato Leaves Archive](https://ptlv.milkbun.org/)
  > - `chcy-`: [Chart Cyanvas Archive](https://cc.milkbun.org/)
+ > - `UnCh-`：[UntitledCharts](https://untitledcharts.com/)
+ > - `sss- `：[Sbuga's Sonolus Server](https://sonolus.sbuga.com/)
+ > - `coconut-next-sekai-`：[Next SEKAI](https://coconut.sonolus.com/next-sekai/)
  > - `local-`: ScoreSync
 
 > [!WARNING]
@@ -101,6 +104,9 @@ pjsekai-soundgen-rust は、様々なPJSKサーバーから音声を生成する
 > 
  > - `frpt-`：[Potato Leaves Archive](https://ptlv.milkbun.org/)
  > - `chcy-`：[Chart Cyanvas Archive](https://cc.milkbun.org/)
+ > - `UnCh-`：[UntitledCharts](https://untitledcharts.com/)
+ > - `sss- `：[Sbuga's Sonolus Server](https://sonolus.sbuga.com/)
+ > - `coconut-next-sekai-`：[Next SEKAI](https://coconut.sonolus.com/next-sekai/)
  > - `local-` ：ScoreSync
 
 > [!WARNING]
