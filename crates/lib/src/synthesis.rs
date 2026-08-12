@@ -15,6 +15,7 @@ pub struct ClipColor {
     pub bg: &'static str,
 }
 
+// COLOR_MAP / NAME_MAP のキーは「正式名」(各候補リストの先頭要素) を使う。
 static COLOR_MAP: Lazy<HashMap<&'static str, ClipColor>> = Lazy::new(|| {
     HashMap::from([
         ("#PERFECT", ClipColor { fg: "cyan", bg: "blue" }),
@@ -68,7 +69,7 @@ static COLOR_MAP: Lazy<HashMap<&'static str, ClipColor>> = Lazy::new(|| {
             },
         ),
         (
-            "Sekai Normal Trace",
+            "Sekai Trace",
             ClipColor {
                 fg: "green",
                 bg: "blue",
@@ -93,10 +94,40 @@ static NAME_MAP: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|| {
         ("Sekai Critical Hold", "金ホールド"),
         ("Sekai Critical Flick", "金フリック"),
         ("Sekai Critical Tick", "金スライド中継点"),
-        ("Sekai Normal Trace", "通常トレース"),
+        ("Sekai Trace", "通常トレース"),
         ("Sekai Critical Trace", "金トレース"),
     ])
 });
+
+// 正式名(candidates[0]) -> 候補リスト の逆引きテーブル。
+// SOUND_MAP / LOOP_SOUND_MAP の値(候補リスト)を先頭要素でまとめて引けるようにする。
+static CANONICAL_MAP: Lazy<HashMap<&'static str, &'static [&'static str]>> = Lazy::new(|| {
+    let mut map = HashMap::new();
+    for candidates in SOUND_MAP.values().chain(LOOP_SOUND_MAP.values()) {
+        map.insert(candidates[0], *candidates);
+    }
+    map
+});
+
+/// 正式名から、そのエンジンの effect リソースに実際に存在するクリップを探す。
+/// 見つからなければ None（このSEはスキップする）。
+fn resolve_sound(effect: &Effect, canonical_name: &str) -> Option<Sound> {
+    let list: Vec<&str> = match CANONICAL_MAP.get(canonical_name).copied() {
+        Some(candidates) => candidates.to_vec(),
+        None => vec![canonical_name],
+    };
+
+    for name in list {
+        if let Some(sound) = effect.audio.get(name) {
+            if name != canonical_name {
+                eprintln!("警告：SE「{}」が見つからないため「{}」で代用します。", canonical_name, name);
+            }
+            return Some(sound.clone());
+        }
+    }
+    None
+}
+
 struct BpmChange {
     beat: f32,
     bpm: f32,
@@ -155,10 +186,11 @@ pub async fn get_sound_timings(level: &Level, offset: f32) -> Result<Timing> {
         time + level.data.bgm_offset + offset
     };
     for note in level.data.entities.iter() {
-        let Some(sound_map_data) = SOUND_MAP.get(&note.archetype.as_str()) else {
+        let Some(candidates) = SOUND_MAP.get(&note.archetype.as_str()) else {
             continue;
         };
-        let sound_data = sound_map_data.to_string();
+        // グルーピングのキーは候補リストの先頭要素（正式名）を使う
+        let sound_data = candidates[0].to_string();
         if timings.get(&sound_data).is_none() {
             timings.insert(sound_data.clone(), vec![]);
         }
@@ -170,10 +202,62 @@ pub async fn get_sound_timings(level: &Level, offset: f32) -> Result<Timing> {
     }
     let mut slide_connectors: HashMap<String, Vec<(f32, i32)>> = HashMap::new();
     for note in level.data.entities.iter() {
-        let Some(key) = LOOP_SOUND_MAP.get(&note.archetype.as_str()) else {
+        // "Connector" は次RUSHエンジン等で使われる、Normal/Criticalの区別が
+        // アーキタイプ名に含まれない汎用コネクター。見た目だけのガイド線など、
+        // head/tailの構造が特殊なケースが混ざっている可能性があるため、
+        // 取得に失敗した場合はプログラム全体を止めずにこのコネクターだけスキップする。
+        if note.archetype == "Connector" {
+            let Some(head) = note.get_ref(&level.data.entities, "head") else {
+                eprintln!("[診断] Connector: headの参照先が見つからないためスキップします。");
+                continue;
+            };
+            let Some(tail) = note.get_ref(&level.data.entities, "tail") else {
+                eprintln!("[診断] Connector: tailの参照先が見つからないためスキップします。");
+                continue;
+            };
+            let Some(head_beat) = head.get_value("#BEAT") else {
+                eprintln!(
+                    "[診断] Connector: headに#BEATが無いためスキップします。(head archetype={})",
+                    head.archetype
+                );
+                continue;
+            };
+            let Some(tail_beat) = tail.get_value("#BEAT") else {
+                eprintln!(
+                    "[診断] Connector: tailに#BEATが無いためスキップします。(tail archetype={})",
+                    tail.archetype
+                );
+                continue;
+            };
+
+            let is_critical =
+                head.archetype.starts_with("Critical") || tail.archetype.starts_with("Critical");
+            let key = if is_critical {
+                "Sekai Critical Hold".to_string()
+            } else {
+                "#HOLD".to_string()
+            };
+
+            let head_time = resolve_time(head_beat);
+            let tail_time = resolve_time(tail_beat);
+            // 診断用：各Connectorがどの区間として登録されるかを出力
+            eprintln!(
+                "[診断] Connector key={} head_time={:.3} tail_time={:.3} head={} tail={}",
+                key, head_time, tail_time, head.archetype, tail.archetype
+            );
+            if slide_connectors.get(&key).is_none() {
+                slide_connectors.insert(key.clone(), vec![]);
+            }
+            slide_connectors.get_mut(&key).unwrap().push((head_time, 1));
+            slide_connectors.get_mut(&key).unwrap().push((tail_time, -1));
+            continue;
+        }
+
+        let Some(candidates) = LOOP_SOUND_MAP.get(&note.archetype.as_str()) else {
             continue;
         };
-        let key = key.to_string();
+        let key = candidates[0].to_string();
+
         let head = note
             .get_ref(&level.data.entities, "head")
             .ok_or_else(|| anyhow::anyhow!("譜面データが壊れています：SlideConnectorにheadがありません"))?;
@@ -235,6 +319,7 @@ pub async fn get_sound_timings(level: &Level, offset: f32) -> Result<Timing> {
         v.sort_by(|a, b| a.partial_cmp(b).unwrap());
         v.dedup()
     });
+
     Ok(Timing {
         single: timings,
         connect: connect_timings,
@@ -250,6 +335,21 @@ pub async fn synthesis(timing: &Timing, effect: &Effect, notes_per_thread: usize
         let mut thread_infos: HashMap<String, ThreadInfo> = HashMap::new();
         let mut threads: Vec<thread::JoinHandle<()>> = vec![];
         for (sound_name, timings) in timing.single.iter() {
+            // 正式名(sound_name)に対応する実際の効果音クリップを候補リストから解決する。
+            // どの候補も effect.audio に存在しない場合はこのSEをスキップ（panicしない）。
+            let Some(sound) = resolve_sound(&effect, sound_name) else {
+                eprintln!(
+                    "警告：不明なSEです：{}。このSEはスキップされます。Issueに報告してください。",
+                    sound_name
+                );
+                continue;
+            };
+            let color = COLOR_MAP
+                .get(sound_name.as_str())
+                .cloned()
+                .unwrap_or(ClipColor { fg: "gray", bg: "gray" });
+            let name = NAME_MAP.get(sound_name.as_str()).copied().unwrap_or(sound_name.as_str());
+
             let thread_count = (timings.len() + notes_per_thread - 1) / notes_per_thread;
             let notes_per_thread = (timings.len() + thread_count - 1) / thread_count;
             for i in 0..thread_count {
@@ -260,22 +360,9 @@ pub async fn synthesis(timing: &Timing, effect: &Effect, notes_per_thread: usize
                     std::cmp::min((i + 1) * notes_per_thread, timings.len())
                 };
                 let timings = timings[start..end].to_vec();
-                let effect = effect.clone();
                 let tx = tx.clone();
                 debug!(&sound_name);
-                let sound = effect
-                    .audio
-                    .get(sound_name)
-                    .unwrap_or_else(|| panic!("不明なSEです：{}。Issueに報告してください。", sound_name))
-                    .clone();
-                let color = COLOR_MAP
-                    .get(&sound_name.as_str())
-                    .unwrap_or_else(|| panic!("不明なSEです：{}。Issueに報告してください。", sound_name))
-                    .to_owned();
-                let name = NAME_MAP
-                    .get(&sound_name.as_str())
-                    .unwrap_or_else(|| panic!("不明なSEです：{}。Issueに報告してください。", sound_name))
-                    .to_owned();
+                let sound = sound.clone();
 
                 let id = format!("{} ({})", name, i + 1);
 
@@ -303,22 +390,21 @@ pub async fn synthesis(timing: &Timing, effect: &Effect, notes_per_thread: usize
             }
         }
         for (sound_name, timings) in timing.connect.iter() {
-            let timings = timings.clone();
-            let effect = effect.clone();
-            let tx = tx.clone();
-            let sound = effect
-                .audio
-                .get(sound_name)
-                .unwrap_or_else(|| panic!("不明なSEです：{}。Issueに報告してください。", sound_name))
-                .clone();
+            let Some(sound) = resolve_sound(&effect, sound_name) else {
+                eprintln!(
+                    "警告：不明なSEです：{}。このSEはスキップされます。Issueに報告してください。",
+                    sound_name
+                );
+                continue;
+            };
             let color = COLOR_MAP
-                .get(&sound_name.as_str())
-                .unwrap_or_else(|| panic!("不明なSEです：{}。Issueに報告してください。", sound_name))
-                .to_owned();
-            let name = NAME_MAP
-                .get(&sound_name.as_str())
-                .unwrap_or_else(|| panic!("不明なSEです：{}。Issueに報告してください。", sound_name))
-                .to_owned();
+                .get(sound_name.as_str())
+                .cloned()
+                .unwrap_or(ClipColor { fg: "gray", bg: "gray" });
+            let name = NAME_MAP.get(sound_name.as_str()).copied().unwrap_or(sound_name.as_str());
+
+            let timings = timings.clone();
+            let tx = tx.clone();
 
             let id = name.to_string();
 
