@@ -1,4 +1,5 @@
-<img width="2048" height="1168" alt="1" src="https://github.com/user-attachments/assets/c499f1d5-9b5b-451e-b3de-f5896c25a073" />
+<img width="2048" height="1168" alt="1" src="https://github.com/user-attachments/assets/d22dc4c6-538a-4c23-8463-895ccaf2f65e" />
+
 <p align="center">
   <a href="pjsekai-soundgen-rust"><strong>English</strong></a> | <a href="#rust%E7%89%88%E3%83%97%E3%83%AD%E3%82%BB%E3%82%AB%E9%A2%A8%E8%AD%9C%E9%9D%A2%E9%9F%B3%E5%A3%B0%E7%94%9F%E6%88%90%E3%83%84%E3%83%BC%E3%83%AB"><strong>日本語</strong></a>
 </p>
