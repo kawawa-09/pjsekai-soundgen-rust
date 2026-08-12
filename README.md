@@ -1,3 +1,4 @@
+[En](https://github.com/kawawa-09/pjsekai-soundgen-rust#pjsekai-soundgen-rust) / [Jp](https://github.com/kawawa-09/pjsekai-soundgen-rust#rust%E7%89%88%E3%83%97%E3%83%AD%E3%82%BB%E3%82%AB%E9%A2%A8%E8%AD%9C%E9%9D%A2%E9%9F%B3%E5%A3%B0%E7%94%9F%E6%88%90%E3%83%84%E3%83%BC%E3%83%AB)
 ## pjsekai-soundgen-rust
 
 pjsekai-soundgen-rust is a tool that generates audio from various PJSK servers.
