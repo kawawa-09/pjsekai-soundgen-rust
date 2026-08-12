@@ -1,4 +1,4 @@
-## A Rust-Based pjsekai-soundgen-rust
+## pjsekai-soundgen-rust
 
 pjsekai-soundgen-rust is a tool that generates audio from various PJSK servers.
 
