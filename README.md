@@ -1,6 +1,8 @@
 [En](https://github.com/kawawa-09/pjsekai-soundgen-rust#pjsekai-soundgen-rust) / [Jp](https://github.com/kawawa-09/pjsekai-soundgen-rust#rust%E7%89%88%E3%83%97%E3%83%AD%E3%82%BB%E3%82%AB%E9%A2%A8%E8%AD%9C%E9%9D%A2%E9%9F%B3%E5%A3%B0%E7%94%9F%E6%88%90%E3%83%84%E3%83%BC%E3%83%AB)
 ## pjsekai-soundgen-rust
 
+[Latest Release](https://github.com/kawawa-09/pjsekai-soundgen-rust/releases/latest)
+
 pjsekai-soundgen-rust is a tool that generates audio from various PJSK servers.
 
 
@@ -38,6 +40,8 @@ pjsekai-soundgen-rust is a tool that generates audio from various PJSK servers.
 > For ScoreSync, enter `local-{chart filename}`
 
 4. The results will be generated in the `dist` directory
+
+Please check the [wiki](https://github.com/kawawa-09/pjsekai-soundgen-rust/wiki#english) for more details.
 
 ### Terms of Use
 
@@ -77,6 +81,7 @@ Translated with DeepL.com (free version)
 
 pjsekai-soundgen-rust は、様々なPJSKサーバーから音声を生成するツールです。
 
+[最新リリース](https://github.com/kawawa-09/pjsekai-soundgen-rust/releases/latest)
 
 ###  サーバー一覧
 > 
@@ -112,6 +117,8 @@ pjsekai-soundgen-rust は、様々なPJSKサーバーから音声を生成する
 > ScoreSyncの場合`local-{譜面ファイル名}`と入力
 
 4. dist内に結果が生成される
+
+詳しくは[wiki](https://github.com/kawawa-09/pjsekai-soundgen-rust/wiki#%E6%97%A5%E6%9C%AC%E8%AA%9E)を確認してください
 
 ### 利用規約
 
