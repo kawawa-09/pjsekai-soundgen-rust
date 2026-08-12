@@ -41,6 +41,27 @@ impl Server {
                 color: 0x83ccd2,
                 url: "https://cc.milkbun.org/".to_string(),
             })
+        } else if level_name.starts_with("UnCh-") {
+            Ok(Server {
+                id: "untitledCharts".to_string(),
+                name: "UntitledCharts".to_string(),
+                color: 0x7765da,
+                url: "https://untitledcharts.com".to_string(),
+            })
+        } else if level_name.starts_with("coconut-next-sekai-") {
+            Ok(Server {
+                id: "next_sekai".to_string(),
+                name: "Next SEKAI".to_string(),
+                color: 0x02cbbd,
+                url: "https://coconut.sonolus.com/next-sekai".to_string(),
+            })
+        } else if level_name.starts_with("sss-") {
+            Ok(Server {
+                id: "sbuga_sonolus".to_string(),
+                name: "Sbuga's Sonolus Server".to_string(),
+                color: 0xe0f2fe,
+                url: "https://sonolus.sbuga.com".to_string(),
+            })
         } else if level_name.starts_with("local-") {
             Ok(Server {
                 id: "ScoreSync".to_string(),
@@ -54,7 +75,9 @@ impl Server {
     }
 
     async fn fetch_srl_with_cache(&self, srl: &Srl) -> Result<Vec<u8>> {
-        let key = format!("{}-{}", self.id, srl.hash);
+        // hashが無い(sekai-best等、実ファイルを直接指すSrl)場合はurlをキーとして使う
+        let key_source = srl.hash.clone().unwrap_or_else(|| srl.url.clone());
+        let key = format!("{}-{}", self.id, key_source);
 
         debug!(&key);
 
