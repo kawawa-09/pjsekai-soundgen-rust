@@ -158,7 +158,13 @@ impl Sound {
         }
     }
 
-    pub fn export(self, path: &str) {
+    pub fn export(self, path: &str) -> Result<()> {
+        // `-`で始まるパスをffmpegのオプションとして解釈させないようにする。
+        let path = if path.starts_with('-') {
+            format!(".{}{}", std::path::MAIN_SEPARATOR, path)
+        } else {
+            path.to_string()
+        };
         let mut child = Command::new("ffmpeg")
             .arg("-y")
             .args(["-f", "s16le"])
@@ -170,20 +176,18 @@ impl Sound {
             .args(["-maxrate", "480k"])
             .args(["-bufsize", "480k"])
             .args(["-minrate", "480k"])
-            .arg(path)
+            .arg(path.as_str())
             .stdin(Stdio::piped())
             .stderr(Stdio::null())
-            .spawn()
-            .unwrap();
-        let mut stdin = child.stdin.take().unwrap();
-        stdin
-            .write_all(&self.data.iter().flat_map(|a| a.to_le_bytes().to_vec()).collect::<Vec<u8>>())
-            .unwrap();
+            .spawn()?;
+        let mut stdin = child.stdin.take().ok_or_else(|| anyhow!("ffmpegの入力を開けませんでした"))?;
+        stdin.write_all(&self.data.iter().flat_map(|a| a.to_le_bytes().to_vec()).collect::<Vec<u8>>())?;
         drop(stdin);
-        let output = child.wait_with_output().unwrap();
+        let output = child.wait_with_output()?;
         if !output.status.success() {
-            panic!("ffmpeg failed");
+            return Err(anyhow!("ffmpegの実行に失敗しました"));
         }
+        Ok(())
     }
 
     pub fn overlay_until(self, sound: &Sound, start: f32, end: f32) -> Sound {
@@ -229,6 +233,9 @@ impl std::ops::Mul<f32> for Sound {
     }
 }
 
+/// 効果音クリップ一つあたりの展開サイズ上限。
+const MAX_CLIP_SIZE: u64 = 64 * 1024 * 1024;
+
 #[derive(Debug, Clone)]
 pub struct Effect {
     pub audio: HashMap<String, Sound>,
@@ -238,10 +245,14 @@ impl Effect {
     pub fn new(data: EffectData, mut zip: ZipArchive<Cursor<Vec<u8>>>) -> Result<Self> {
         let mut audio = HashMap::new();
         for clip in data.clips {
-            let mut file =
-                zip.by_name(&clip.filename).map_err(|_| anyhow!("効果音のファイルが見つかりませんでした"))?;
+            let file = zip.by_name(&clip.filename).map_err(|_| anyhow!("効果音のファイルが見つかりませんでした"))?;
             let mut buf = vec![];
+            // 展開爆弾を防ぐために展開サイズを制限する。
+            let mut file = file.take(MAX_CLIP_SIZE + 1);
             file.read_to_end(&mut buf).map_err(|_| anyhow!("効果音のファイルが読み込めませんでした"))?;
+            if buf.len() as u64 > MAX_CLIP_SIZE {
+                return Err(anyhow!("効果音のファイルが大きすぎます"));
+            }
             audio.insert(clip.name, Sound::load(&buf));
         }
         Ok(Self { audio })
