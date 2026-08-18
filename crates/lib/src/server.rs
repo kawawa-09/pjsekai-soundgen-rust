@@ -8,7 +8,7 @@ use dirs::cache_dir;
 use flate2::read::GzDecoder;
 use once_cell::sync::Lazy;
 use std::io::Read;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tokio::try_join;
 
 #[derive(Debug, Clone)]
@@ -20,7 +20,7 @@ pub struct Server {
 }
 
 static CACHE_DIR: Lazy<Box<Path>> = Lazy::new(|| {
-    let mut path = cache_dir().or_else(|| "./cache".parse().ok()).unwrap();
+    let mut path = cache_dir().unwrap_or_else(|| PathBuf::from("./cache"));
     path.push("pjsekai-soundgen-rust");
     path.into_boxed_path()
 });
@@ -84,11 +84,23 @@ impl Server {
         // ScoreSyncの場合はキャッシュを使わず常に取得
         if self.id != "ScoreSync" {
             let cache_path = CACHE_DIR.join(&key);
-            if let Ok(cache) = tokio::fs::read(&cache_path).await {
-                debug!("cache hit");
-                return Ok(cache);
+            match tokio::fs::read(&cache_path).await {
+                Ok(cache) => {
+                    debug!("cache hit");
+                    return Ok(cache);
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                    debug!("cache miss");
+                }
+                // キャッシュは失敗しても取得し直せばよいが、NotFound以外は黙って無視せず知らせる。
+                Err(e) => {
+                    eprintln!(
+                        "警告：キャッシュの読み込みに失敗しました。サーバーから取得します。({}): {}",
+                        cache_path.display(),
+                        e
+                    );
+                }
             }
-            debug!("cache miss");
         } else {
             debug!("ScoreSync: always fetch from server (no cache)");
         }
@@ -100,7 +112,7 @@ impl Server {
             client.get(url).send().await.map_err(|e| anyhow::anyhow!("データの取得に失敗しました。: {}", e))?;
 
         if !bgm_response.status().is_success() {
-            return Err(anyhow::anyhow!("データの取得に失敗しました。"));
+            return Err(anyhow::anyhow!("データの取得に失敗しました。（HTTP {}）", bgm_response.status()));
         }
 
         let bytes = bgm_response
@@ -109,12 +121,20 @@ impl Server {
             .map_err(|e| anyhow::anyhow!("データの取得に失敗しました。: {}", e))?
             .to_vec();
 
+        // キャッシュの保存に失敗しても取得したデータ自体は使えるので、警告だけして続行する。
         if self.id != "ScoreSync" {
-            tokio::fs::create_dir_all(CACHE_DIR.as_ref()).await?;
-            tokio::fs::write(CACHE_DIR.join(&key), &bytes).await?;
+            if let Err(e) = self.write_cache(&key, &bytes).await {
+                eprintln!("警告：キャッシュの保存に失敗しました。: {}", e);
+            }
         }
 
         Ok(bytes)
+    }
+
+    async fn write_cache(&self, key: &str, bytes: &[u8]) -> Result<()> {
+        tokio::fs::create_dir_all(CACHE_DIR.as_ref()).await?;
+        tokio::fs::write(CACHE_DIR.join(key), bytes).await?;
+        Ok(())
     }
 
     pub async fn fetch_level(&self, level_name: &str) -> Result<Level> {
@@ -128,11 +148,20 @@ impl Server {
         };
 
         // 譜面情報を取得
-        let level_info = client
+        let level_info_response = client
             .get(format!("{}/sonolus/levels/{}", self.url, api_level_name).as_str())
             .send()
             .await
-            .map_err(|e| anyhow::anyhow!("譜面情報の取得に失敗しました。: {}", e))?
+            .map_err(|e| anyhow::anyhow!("譜面情報の取得に失敗しました。: {}", e))?;
+
+        if !level_info_response.status().is_success() {
+            return Err(anyhow::anyhow!(
+                "譜面情報の取得に失敗しました。譜面IDを確認してください。（HTTP {}）",
+                level_info_response.status()
+            ));
+        }
+
+        let level_info = level_info_response
             .json::<ItemResponse<LevelInfo>>()
             .await
             .map_err(|e| anyhow::anyhow!("譜面情報の取得に失敗しました。: {}", e))?
