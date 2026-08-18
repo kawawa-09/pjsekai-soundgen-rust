@@ -16,24 +16,8 @@ impl Level {
     }
 
     pub async fn fetch_bgm(&self, buf: &mut Vec<u8>) -> Result<()> {
-        let client = reqwest::Client::new();
-        let bgm_response = client
-            .get(self.server.merge_url(&self.info.bgm.url))
-            .send()
-            .await
-            .map_err(|e| anyhow::anyhow!("BGMの取得に失敗しました。: {}", e))?;
-
-        if !bgm_response.status().is_success() {
-            return Err(anyhow::anyhow!("BGMの取得に失敗しました。"));
-        }
-
-        buf.append(
-            &mut bgm_response
-                .bytes()
-                .await
-                .map_err(|e| anyhow::anyhow!("BGMの取得に失敗しました。: {}", e))?
-                .to_vec(),
-        );
+        let url = self.server.merge_url(&self.info.bgm.url);
+        buf.append(&mut crate::utils::fetch_bytes(&url, "BGMの取得に失敗しました。").await?);
         Ok(())
     }
 }
