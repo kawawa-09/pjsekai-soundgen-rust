@@ -60,3 +60,19 @@ pub fn info(msg: &str) {
 pub fn ask(msg: &str) {
     colored_log("?", msg, "\x1b[32m");
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ansi_regex_strips_color_codes() {
+        let colored = format!("{}hello{}", rgb!(0x00b5c9), rgb!());
+        assert_eq!(ANSI_REGEX.replace_all(&colored, ""), "hello");
+    }
+
+    #[test]
+    fn ansi_regex_keeps_plain_text() {
+        assert_eq!(ANSI_REGEX.replace_all("plain text", ""), "plain text");
+    }
+}

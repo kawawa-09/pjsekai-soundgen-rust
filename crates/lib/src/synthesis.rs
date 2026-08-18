@@ -437,3 +437,298 @@ pub async fn synthesis(timing: &Timing, effect: &Effect, notes_per_thread: usize
 
     rx
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::server::Server;
+    use crate::sonolus::{LevelData, LevelInfo};
+
+    fn test_level(bgm_offset: f32, entities: serde_json::Value) -> Level {
+        let server = Server::guess("frpt-test").unwrap();
+        let info: LevelInfo = serde_json::from_value(serde_json::json!({
+            "title": "Test",
+            "artists": "Artist",
+            "author": "Author",
+            "name": "frpt-test",
+            "rating": 1,
+            "bgm": {"url": "/bgm.mp3"},
+            "data": {"url": "/data.gz"},
+            "engine": {
+                "version": 1,
+                "effect": {
+                    "audio": {"url": "/audio.zip"},
+                    "data": {"url": "/effect.gz"},
+                },
+            },
+        }))
+        .unwrap();
+        let data: LevelData = serde_json::from_value(serde_json::json!({
+            "bgmOffset": bgm_offset,
+            "entities": entities,
+        }))
+        .unwrap();
+        Level::new(server, info, data)
+    }
+
+    fn bpm_change(beat: f32, bpm: f32) -> serde_json::Value {
+        serde_json::json!({
+            "archetype": "#BPM_CHANGE",
+            "data": [{"name": "#BEAT", "value": beat}, {"name": "#BPM", "value": bpm}],
+            "name": null,
+        })
+    }
+
+    fn tap(archetype: &str, beat: f32) -> serde_json::Value {
+        serde_json::json!({
+            "archetype": archetype,
+            "data": [{"name": "#BEAT", "value": beat}],
+            "name": null,
+        })
+    }
+
+    fn named_tap(archetype: &str, beat: f32, name: &str) -> serde_json::Value {
+        serde_json::json!({
+            "archetype": archetype,
+            "data": [{"name": "#BEAT", "value": beat}],
+            "name": name,
+        })
+    }
+
+    fn connector(archetype: &str, head: &str, tail: &str) -> serde_json::Value {
+        serde_json::json!({
+            "archetype": archetype,
+            "data": [{"name": "head", "ref": head}, {"name": "tail", "ref": tail}],
+            "name": null,
+        })
+    }
+
+    fn test_effect(clips: &[(&str, usize)]) -> Effect {
+        let mut audio = std::collections::HashMap::new();
+        for (name, samples) in clips {
+            audio.insert(
+                name.to_string(),
+                Sound {
+                    data: vec![1; *samples],
+                    bitrate: 48000,
+                },
+            );
+        }
+        Effect { audio }
+    }
+
+    #[test]
+    fn resolve_sound_finds_exact_clip() {
+        let effect = test_effect(&[("#PERFECT", 4)]);
+        assert!(resolve_sound(&effect, "#PERFECT").is_some());
+    }
+
+    #[test]
+    fn resolve_sound_falls_back_to_alternative_candidates() {
+        let effect = test_effect(&[("Sekai Normal Trace", 4)]);
+        assert!(resolve_sound(&effect, "Sekai Trace").is_some());
+    }
+
+    #[test]
+    fn resolve_sound_returns_none_for_missing_clip() {
+        let effect = test_effect(&[("#PERFECT", 4)]);
+        assert!(resolve_sound(&effect, "Sekai Critical Tap").is_none());
+        assert!(resolve_sound(&effect, "unknown clip").is_none());
+    }
+
+    #[tokio::test]
+    async fn get_sound_timings_resolves_note_times_at_constant_bpm() {
+        let level = test_level(0.0, serde_json::json!([bpm_change(0.0, 60.0), tap("NormalTapNote", 2.0)]));
+        let timing = get_sound_timings(&level, 0.0).await.unwrap();
+        assert_eq!(timing.single.get("#PERFECT"), Some(&vec![2.0]));
+        assert!(timing.connect.is_empty());
+    }
+
+    #[tokio::test]
+    async fn get_sound_timings_applies_bgm_offset_and_shift() {
+        let level = test_level(0.5, serde_json::json!([bpm_change(0.0, 60.0), tap("NormalTapNote", 1.0)]));
+        let timing = get_sound_timings(&level, 0.25).await.unwrap();
+        assert_eq!(timing.single.get("#PERFECT"), Some(&vec![1.75]));
+    }
+
+    #[tokio::test]
+    async fn get_sound_timings_handles_bpm_changes() {
+        let level = test_level(
+            0.0,
+            serde_json::json!([bpm_change(0.0, 60.0), bpm_change(2.0, 120.0), tap("NormalTapNote", 4.0)]),
+        );
+        let timing = get_sound_timings(&level, 0.0).await.unwrap();
+        // 2 beats at 60 BPM (2s) + 2 beats at 120 BPM (1s)
+        assert_eq!(timing.single.get("#PERFECT"), Some(&vec![3.0]));
+    }
+
+    #[tokio::test]
+    async fn get_sound_timings_dedupes_and_sorts_timings() {
+        let level = test_level(
+            0.0,
+            serde_json::json!([
+                bpm_change(0.0, 60.0),
+                tap("NormalTapNote", 3.0),
+                tap("NormalTapNote", 1.0),
+                tap("NormalSlideStartNote", 1.0),
+            ]),
+        );
+        let timing = get_sound_timings(&level, 0.0).await.unwrap();
+        assert_eq!(timing.single.get("#PERFECT"), Some(&vec![1.0, 3.0]));
+    }
+
+    #[tokio::test]
+    async fn get_sound_timings_groups_notes_by_canonical_clip_name() {
+        let level = test_level(
+            0.0,
+            serde_json::json!([
+                bpm_change(0.0, 60.0),
+                tap("NormalTapNote", 1.0),
+                tap("NormalFlickNote", 2.0),
+                tap("CriticalTapNote", 3.0),
+                tap("UnknownArchetype", 4.0),
+            ]),
+        );
+        let timing = get_sound_timings(&level, 0.0).await.unwrap();
+        assert_eq!(timing.single.get("#PERFECT"), Some(&vec![1.0]));
+        assert_eq!(timing.single.get("#PERFECT_ALTERNATIVE"), Some(&vec![2.0]));
+        assert_eq!(timing.single.get("Sekai Critical Tap"), Some(&vec![3.0]));
+        assert_eq!(timing.single.len(), 3);
+    }
+
+    #[tokio::test]
+    async fn get_sound_timings_merges_overlapping_slide_connectors() {
+        let level = test_level(
+            0.0,
+            serde_json::json!([
+                bpm_change(0.0, 60.0),
+                named_tap("NormalSlideStartNote", 1.0, "a"),
+                named_tap("NormalSlideEndNote", 3.0, "b"),
+                named_tap("NormalSlideStartNote", 2.0, "c"),
+                named_tap("NormalSlideEndNote", 4.0, "d"),
+                connector("NormalSlideConnector", "a", "b"),
+                connector("NormalSlideConnector", "c", "d"),
+            ]),
+        );
+        let timing = get_sound_timings(&level, 0.0).await.unwrap();
+        assert_eq!(timing.connect.get("#HOLD"), Some(&vec![(1.0, 4.0)]));
+    }
+
+    #[tokio::test]
+    async fn get_sound_timings_registers_generic_connector_as_critical_hold() {
+        let level = test_level(
+            0.0,
+            serde_json::json!([
+                bpm_change(0.0, 60.0),
+                named_tap("CriticalSlideStartNote", 1.0, "a"),
+                named_tap("CriticalSlideEndNote", 2.0, "b"),
+                connector("Connector", "a", "b"),
+            ]),
+        );
+        let timing = get_sound_timings(&level, 0.0).await.unwrap();
+        assert_eq!(timing.connect.get("Sekai Critical Hold"), Some(&vec![(1.0, 2.0)]));
+    }
+
+    #[tokio::test]
+    async fn get_sound_timings_skips_generic_connector_with_broken_refs() {
+        let level = test_level(
+            0.0,
+            serde_json::json!([bpm_change(0.0, 60.0), connector("Connector", "missing", "also-missing")]),
+        );
+        let timing = get_sound_timings(&level, 0.0).await.unwrap();
+        assert!(timing.connect.is_empty());
+    }
+
+    #[tokio::test]
+    async fn get_sound_timings_fails_on_bpm_change_without_bpm() {
+        let level = test_level(
+            0.0,
+            serde_json::json!([{
+                "archetype": "#BPM_CHANGE",
+                "data": [{"name": "#BEAT", "value": 0.0}],
+                "name": null,
+            }]),
+        );
+        assert!(get_sound_timings(&level, 0.0).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn get_sound_timings_fails_on_note_without_beat() {
+        let level = test_level(
+            0.0,
+            serde_json::json!([bpm_change(0.0, 60.0), {
+                "archetype": "NormalTapNote",
+                "data": [],
+                "name": null,
+            }]),
+        );
+        assert!(get_sound_timings(&level, 0.0).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn get_sound_timings_fails_on_unbalanced_slide_connector() {
+        let level = test_level(
+            0.0,
+            serde_json::json!([
+                bpm_change(0.0, 60.0),
+                named_tap("NormalSlideStartNote", 1.0, "a"),
+                connector("NormalSlideConnector", "a", "missing"),
+            ]),
+        );
+        assert!(get_sound_timings(&level, 0.0).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn synthesis_reports_progress_and_finishes() {
+        let level = test_level(
+            0.0,
+            serde_json::json!([
+                bpm_change(0.0, 60.0),
+                tap("NormalTapNote", 0.0),
+                tap("NormalTapNote", 1.0),
+                named_tap("NormalSlideStartNote", 1.0, "a"),
+                named_tap("NormalSlideEndNote", 2.0, "b"),
+                connector("NormalSlideConnector", "a", "b"),
+            ]),
+        );
+        let timing = get_sound_timings(&level, 0.0).await.unwrap();
+        let effect = test_effect(&[("#PERFECT", 4), ("#HOLD", 4)]);
+
+        let rx = synthesis(&timing, &effect, 1000).await;
+        let Progress::Info { threads } = rx.recv().unwrap() else {
+            panic!("first message should be Progress::Info");
+        };
+        assert!(!threads.is_empty());
+
+        let mut finished = 0;
+        let mut updates = 0;
+        while finished < threads.len() {
+            match rx.recv().unwrap() {
+                Progress::Update { id, .. } => {
+                    assert!(threads.contains_key(&id));
+                    updates += 1;
+                }
+                Progress::Finish { id, sound } => {
+                    assert!(threads.contains_key(&id));
+                    assert!(!sound.data.is_empty());
+                    finished += 1;
+                }
+                Progress::Info { .. } => panic!("Progress::Info should only be sent once"),
+            }
+        }
+        assert!(updates > 0);
+    }
+
+    #[tokio::test]
+    async fn synthesis_skips_unknown_sounds() {
+        let level = test_level(0.0, serde_json::json!([bpm_change(0.0, 60.0), tap("NormalTapNote", 1.0)]));
+        let timing = get_sound_timings(&level, 0.0).await.unwrap();
+        let effect = test_effect(&[]);
+
+        let rx = synthesis(&timing, &effect, 1000).await;
+        let Progress::Info { threads } = rx.recv().unwrap() else {
+            panic!("first message should be Progress::Info");
+        };
+        assert!(threads.is_empty());
+    }
+}

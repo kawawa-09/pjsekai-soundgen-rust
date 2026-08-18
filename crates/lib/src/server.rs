@@ -183,3 +183,60 @@ impl Server {
         Effect::new(data, zip)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn guess_identifies_servers_by_prefix() {
+        let cases = [
+            ("frpt-abc", "potato_leaves"),
+            ("chcy-abc", "chart_cyanvas"),
+            ("UnCh-abc", "untitledCharts"),
+            ("coconut-next-sekai-abc", "next_sekai"),
+            ("sss-abc", "sbuga_sonolus"),
+            ("local-abc", "ScoreSync"),
+        ];
+        for (level_name, expected_id) in cases {
+            let server = Server::guess(level_name).unwrap();
+            assert_eq!(server.id, expected_id, "prefix of {}", level_name);
+            assert!(!server.url.is_empty());
+            assert!(!server.name.is_empty());
+        }
+    }
+
+    #[test]
+    fn guess_fails_for_unknown_prefix() {
+        assert!(Server::guess("unknown-abc").is_err());
+        assert!(Server::guess("").is_err());
+    }
+
+    fn server_with_url(url: &str) -> Server {
+        Server {
+            id: "test".to_string(),
+            name: "Test".to_string(),
+            color: 0,
+            url: url.to_string(),
+        }
+    }
+
+    #[test]
+    fn merge_url_keeps_absolute_urls() {
+        let server = server_with_url("https://example.com");
+        assert_eq!(server.merge_url("https://cdn.example.com/a.mp3"), "https://cdn.example.com/a.mp3");
+        assert_eq!(server.merge_url("http://cdn.example.com/a.mp3"), "http://cdn.example.com/a.mp3");
+    }
+
+    #[test]
+    fn merge_url_joins_paths_with_base_url() {
+        let server = server_with_url("https://example.com");
+        assert_eq!(server.merge_url("/sonolus/levels/a"), "https://example.com/sonolus/levels/a");
+    }
+
+    #[test]
+    fn merge_url_trims_trailing_slash_of_base_url() {
+        let server = server_with_url("https://example.com/");
+        assert_eq!(server.merge_url("/sonolus/levels/a"), "https://example.com/sonolus/levels/a");
+    }
+}
