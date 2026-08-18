@@ -247,3 +247,99 @@ impl Effect {
         Ok(Self { audio })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sound(data: Vec<i16>, bitrate: u32) -> Sound {
+        Sound { data, bitrate }
+    }
+
+    #[test]
+    fn empty_defaults_to_48khz() {
+        let s = Sound::empty(None);
+        assert!(s.data.is_empty());
+        assert_eq!(s.bitrate, 48000);
+    }
+
+    #[test]
+    fn empty_accepts_custom_bitrate() {
+        let s = Sound::empty(Some(44100));
+        assert!(s.data.is_empty());
+        assert_eq!(s.bitrate, 44100);
+    }
+
+    #[test]
+    fn mul_scales_samples() {
+        let s = sound(vec![100, -100, 3], 48000) * 0.5;
+        assert_eq!(s.data, vec![50, -50, 1]);
+        assert_eq!(s.bitrate, 48000);
+    }
+
+    #[test]
+    fn overlay_at_mixes_samples_at_offset() {
+        let base = sound(vec![10, 10, 10, 10, 10, 10], 1);
+        let other = sound(vec![1, 2], 1);
+        let mixed = base.overlay_at(&other, 1.0);
+        assert_eq!(mixed.data, vec![10, 10, 11, 12, 10, 10]);
+    }
+
+    #[test]
+    fn overlay_at_extends_base_when_needed() {
+        let base = sound(vec![10, 10], 1);
+        let other = sound(vec![1, 2], 1);
+        let mixed = base.overlay_at(&other, 2.0);
+        assert_eq!(mixed.data, vec![10, 10, 0, 0, 1, 2]);
+    }
+
+    #[test]
+    fn overlay_at_saturates_instead_of_overflowing() {
+        let base = sound(vec![i16::MAX, i16::MIN], 1);
+        let other = sound(vec![100, -100], 1);
+        let mixed = base.overlay_at(&other, 0.0);
+        assert_eq!(mixed.data, vec![i16::MAX, i16::MIN]);
+    }
+
+    #[test]
+    fn overlay_loop_repeats_other_sound_over_range() {
+        let base = sound(vec![0; 8], 1);
+        let other = sound(vec![1, 2], 1);
+        let mixed = base.overlay_loop(&other, 1.0, 3.0);
+        assert_eq!(mixed.data, vec![0, 0, 1, 2, 1, 2, 0, 0]);
+    }
+
+    #[test]
+    fn overlay_loop_extends_base_when_needed() {
+        let base = sound(vec![], 1);
+        let other = sound(vec![1, 2], 1);
+        let mixed = base.overlay_loop(&other, 0.0, 2.0);
+        assert_eq!(mixed.data, vec![1, 2, 1, 2]);
+    }
+
+    #[test]
+    fn overlay_until_mixes_range() {
+        let base = sound(vec![10; 6], 1);
+        let other = sound(vec![1, 2, 3, 4, 5, 6, 7, 8], 1);
+        let mixed = base.overlay_until(&other, 1.0, 3.0);
+        assert_eq!(mixed.data, vec![10, 10, 11, 12, 13]);
+    }
+
+    #[test]
+    fn overlay_until_clamps_range_to_other_sound_length() {
+        let base = sound(vec![10; 4], 1);
+        let other = sound(vec![1, 2], 1);
+        let mixed = base.overlay_until(&other, 0.0, 3.0);
+        assert_eq!(mixed.data, vec![11, 10, 10]);
+    }
+
+    #[test]
+    fn sound_map_covers_all_canonical_clip_candidates() {
+        for (archetype, candidates) in SOUND_MAP.iter() {
+            assert!(!candidates.is_empty(), "no candidate clips for {}", archetype);
+        }
+        for (archetype, candidates) in LOOP_SOUND_MAP.iter() {
+            assert!(!candidates.is_empty(), "no candidate clips for {}", archetype);
+        }
+    }
+}
