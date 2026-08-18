@@ -109,23 +109,20 @@ impl Sound {
         }
     }
 
-    pub fn overlay_at(self, other: &Sound, seconds: f32) -> Sound {
-        let mut new_data = self.data.clone();
-        let start_index = (seconds * self.bitrate as f32) as usize * 2;
-        let end_index = start_index + other.data.len();
+    fn sample_index(&self, seconds: f32) -> usize {
+        (seconds * self.bitrate as f32) as usize * 2
+    }
+
+    fn overlay_samples(self, samples: impl Iterator<Item = i16>, start_index: usize, end_index: usize) -> Sound {
+        let mut new_data = self.data;
         if end_index > new_data.len() {
             new_data.resize(end_index, 0);
         }
-        new_data.splice(
-            start_index..end_index,
-            other
-                .data
-                .iter()
-                .cloned()
-                .zip(new_data.clone()[start_index..end_index].iter())
-                .map(|(a, b)| a.saturating_add(*b))
-                .collect::<Vec<i16>>(),
-        );
+        let mixed = samples
+            .zip(new_data[start_index..end_index].iter())
+            .map(|(a, b)| a.saturating_add(*b))
+            .collect::<Vec<i16>>();
+        new_data.splice(start_index..end_index, mixed);
 
         Sound {
             data: new_data,
@@ -133,29 +130,18 @@ impl Sound {
         }
     }
 
-    pub fn overlay_loop(self, other: &Sound, start: f32, end: f32) -> Sound {
-        let mut new_data = self.data.clone();
-        let start_index = (start * self.bitrate as f32) as usize * 2;
-        let end_index = (end * self.bitrate as f32) as usize * 2;
-        if end_index > new_data.len() {
-            new_data.resize(end_index, 0);
-        }
-        new_data.splice(
-            start_index..end_index,
-            other
-                .data
-                .iter()
-                .cycle()
-                .cloned()
-                .zip(new_data.clone()[start_index..end_index].iter())
-                .map(|(a, b)| a.saturating_add(*b))
-                .collect::<Vec<i16>>(),
-        );
+    pub fn overlay_at(self, other: &Sound, seconds: f32) -> Sound {
+        let start_index = self.sample_index(seconds);
+        let end_index = start_index + other.data.len();
+        let samples = other.data.clone();
+        self.overlay_samples(samples.into_iter(), start_index, end_index)
+    }
 
-        Sound {
-            data: new_data,
-            bitrate: self.bitrate,
-        }
+    pub fn overlay_loop(self, other: &Sound, start: f32, end: f32) -> Sound {
+        let start_index = self.sample_index(start);
+        let end_index = self.sample_index(end);
+        let samples = other.data.clone();
+        self.overlay_samples(samples.into_iter().cycle(), start_index, end_index)
     }
 
     pub fn export(self, path: &str) {
@@ -187,30 +173,17 @@ impl Sound {
     }
 
     pub fn overlay_until(self, sound: &Sound, start: f32, end: f32) -> Sound {
-        let mut new_data = self.data.clone();
-        let start_index = (start * self.bitrate as f32) as usize * 2;
-        let mut end_index = (end * self.bitrate as f32) as usize * 2;
+        let start_index = self.sample_index(start);
+        let mut end_index = self.sample_index(end);
         if (end_index - start_index) > sound.data.len() {
             end_index = start_index + sound.data.len();
         }
-        if end_index > new_data.len() {
-            new_data.resize(end_index, 0);
-        }
-        new_data.splice(
-            start_index..end_index,
-            sound
-                .data
-                .iter()
-                .cloned()
-                .zip(new_data.clone()[start_index..end_index - 1].iter())
-                .map(|(a, b)| a.saturating_add(*b))
-                .collect::<Vec<i16>>(),
-        );
-
-        Sound {
-            data: new_data,
-            bitrate: self.bitrate,
-        }
+        let samples = sound.data.clone();
+        self.overlay_samples(
+            samples.into_iter().take((end_index - start_index).saturating_sub(1)),
+            start_index,
+            end_index,
+        )
     }
 }
 

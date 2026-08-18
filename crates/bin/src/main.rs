@@ -62,6 +62,13 @@ fn parse_args() -> Args {
     }
 }
 
+fn unwrap_or_exit<T, E: std::fmt::Display>(result: Result<T, E>) -> T {
+    result.unwrap_or_else(|err| {
+        console::error(&err.to_string());
+        std::process::exit(1);
+    })
+}
+
 async fn should_check_update() -> bool {
     let executable_path = process_path::get_executable_path().unwrap();
     let flag_path = executable_path.parent().unwrap().join(".update-check");
@@ -123,16 +130,10 @@ async fn main() {
     } else {
         args.id.unwrap().trim_start_matches('#').to_string()
     };
-    let server = Server::guess(&name).unwrap_or_else(|e| {
-        console::error(&e.to_string());
-        std::process::exit(1);
-    });
+    let server = unwrap_or_exit(Server::guess(&name));
 
     console::info(&format!("{}{}{} から譜面を取得中...", rgb!(server.color), server.name, rgb!()));
-    let level = server.fetch_level(&name).await.unwrap_or_else(|err| {
-        console::error(&err.to_string());
-        std::process::exit(1);
-    });
+    let level = unwrap_or_exit(server.fetch_level(&name).await);
     console::info(&format!(
         "{} / {} - {} (Lv. {}) が選択されました。",
         level.info.title, level.info.artists, level.info.author, level.info.rating
@@ -144,27 +145,15 @@ async fn main() {
         let mut file = File::open(args.bgm_override.unwrap()).await.expect("ファイルを開けませんでした。");
         file.read_to_end(&mut bgm_buf).await.unwrap();
     } else {
-        level.fetch_bgm(&mut bgm_buf).await.unwrap_or_else(|err| {
-            console::error(&err.to_string());
-            std::process::exit(1);
-        });
+        unwrap_or_exit(level.fetch_bgm(&mut bgm_buf).await);
     }
     let bgm = Sound::load(&bgm_buf) * args.bgm_volume;
 
     console::info("譜面を読み込んでいます...");
-    let timing = match pjsekai_soundgen_core::get_sound_timings(&level, args.shift).await {
-        Ok(t) => t,
-        Err(err) => {
-            console::error(&err.to_string());
-            std::process::exit(1);
-        }
-    };
+    let timing = unwrap_or_exit(pjsekai_soundgen_core::get_sound_timings(&level, args.shift).await);
 
     console::info("効果音を読み込んでいます...");
-    let effect = server.fetch_effect(level.info.engine.effect).await.unwrap_or_else(|err| {
-        console::error(&err.to_string());
-        std::process::exit(1);
-    });
+    let effect = unwrap_or_exit(server.fetch_effect(level.info.engine.effect).await);
 
     let progresses = MultiProgress::new();
     let mut progresses_map: HashMap<String, ProgressBar> = HashMap::new();
