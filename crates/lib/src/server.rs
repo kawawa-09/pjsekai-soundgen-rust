@@ -7,6 +7,8 @@ use anyhow::Result;
 use dirs::cache_dir;
 use flate2::read::GzDecoder;
 use once_cell::sync::Lazy;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use std::io::Read;
 use std::path::Path;
 use tokio::try_join;
@@ -24,6 +26,68 @@ static CACHE_DIR: Lazy<Box<Path>> = Lazy::new(|| {
     path.push("pjsekai-soundgen-rust");
     path.into_boxed_path()
 });
+
+/// ダウンロードされるデータのサイズ上限（圧縮時・展開後の両方に適用）。
+const MAX_DOWNLOAD_SIZE: usize = 512 * 1024 * 1024;
+const MAX_DECOMPRESSED_SIZE: u64 = 512 * 1024 * 1024;
+
+/// サーバーから与えられた文字列をファイル名として安全な形に変換する。
+/// 英数字・`-`・`_`以外は`_`に置き換え、パス区切りや`..`が混入しないようにする。
+fn sanitize_cache_key(key: &str) -> String {
+    let sanitized: String = key
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    // 長すぎるキーはファイルシステムの制限に触れるため切り詰める。
+    sanitized.chars().take(128).collect()
+}
+
+/// 譜面IDをURLのパスセグメントとして安全に埋め込んだURLを作る。
+/// セグメントとしてエンコードすることで、`../`によるパスの抜け出しやクエリ・フラグメントの注入を防ぐ。
+fn level_api_url(base: &str, level_name: &str) -> Result<reqwest::Url> {
+    if level_name.is_empty() {
+        return Err(anyhow::anyhow!("譜面IDが空です。"));
+    }
+    if level_name.chars().any(|c| c.is_control()) {
+        return Err(anyhow::anyhow!("譜面IDに使用できない文字が含まれています。"));
+    }
+    let mut url = reqwest::Url::parse(base).map_err(|e| anyhow::anyhow!("サーバーURLが不正です。: {}", e))?;
+    url.path_segments_mut()
+        .map_err(|_| anyhow::anyhow!("サーバーURLが不正です。"))?
+        .pop_if_empty()
+        .extend(["sonolus", "levels", level_name]);
+    Ok(url)
+}
+
+/// レスポンスボディを上限付きで読み込む。
+pub(crate) async fn read_body_limited(response: reqwest::Response, limit: usize) -> Result<Vec<u8>> {
+    let mut response = response;
+    let mut buf: Vec<u8> = Vec::new();
+    while let Some(chunk) = response.chunk().await? {
+        if buf.len() + chunk.len() > limit {
+            return Err(anyhow::anyhow!("データが大きすぎます。"));
+        }
+        buf.extend_from_slice(&chunk);
+    }
+    Ok(buf)
+}
+
+/// gzipデータを上限付きで展開する。展開爆弾によるメモリ枯渇を防ぐ。
+fn decompress_limited(bytes: &[u8]) -> Result<Vec<u8>> {
+    let mut buf = Vec::new();
+    let mut reader = GzDecoder::new(bytes).take(MAX_DECOMPRESSED_SIZE + 1);
+    reader.read_to_end(&mut buf)?;
+    if buf.len() as u64 > MAX_DECOMPRESSED_SIZE {
+        return Err(anyhow::anyhow!("データが大きすぎます。"));
+    }
+    Ok(buf)
+}
 
 impl Server {
     pub fn guess(level_name: &str) -> Result<Server> {
@@ -77,7 +141,12 @@ impl Server {
     async fn fetch_srl_with_cache(&self, srl: &Srl) -> Result<Vec<u8>> {
         // hashが無い(sekai-best等、実ファイルを直接指すSrl)場合はurlをキーとして使う
         let key_source = srl.hash.clone().unwrap_or_else(|| srl.url.clone());
-        let key = format!("{}-{}", self.id, key_source);
+        // キーはサーバーから与えられる値なので、キャッシュディレクトリ外を指せないようにする。
+        // サニタイズで失われた情報による衝突を避けるため、元の値のハッシュを付加する。
+        let mut hasher = DefaultHasher::new();
+        key_source.hash(&mut hasher);
+        let key =
+            format!("{}-{}-{:016x}", sanitize_cache_key(&self.id), sanitize_cache_key(&key_source), hasher.finish());
 
         debug!(&key);
 
@@ -103,11 +172,9 @@ impl Server {
             return Err(anyhow::anyhow!("データの取得に失敗しました。"));
         }
 
-        let bytes = bgm_response
-            .bytes()
+        let bytes = read_body_limited(bgm_response, MAX_DOWNLOAD_SIZE)
             .await
-            .map_err(|e| anyhow::anyhow!("データの取得に失敗しました。: {}", e))?
-            .to_vec();
+            .map_err(|e| anyhow::anyhow!("データの取得に失敗しました。: {}", e))?;
 
         if self.id != "ScoreSync" {
             tokio::fs::create_dir_all(CACHE_DIR.as_ref()).await?;
@@ -126,10 +193,11 @@ impl Server {
         } else {
             level_name
         };
+        let level_url = level_api_url(&self.url, api_level_name)?;
 
         // 譜面情報を取得
         let level_info = client
-            .get(format!("{}/sonolus/levels/{}", self.url, api_level_name).as_str())
+            .get(level_url)
             .send()
             .await
             .map_err(|e| anyhow::anyhow!("譜面情報の取得に失敗しました。: {}", e))?
@@ -142,10 +210,7 @@ impl Server {
             .await
             .map_err(|e| anyhow::anyhow!("譜面データの取得に失敗しました。: {}", e))?;
 
-        let mut data_raw = GzDecoder::new(&data_bytes[..]);
-        let mut buf = Vec::new();
-        data_raw
-            .read_to_end(&mut buf)
+        let buf = decompress_limited(&data_bytes[..])
             .map_err(|e| anyhow::anyhow!("譜面データの取得に失敗しました。: {}", e))?;
 
         let level_data = serde_json::from_slice::<LevelData>(&buf[..])
@@ -155,7 +220,7 @@ impl Server {
     }
 
     pub fn merge_url(&self, path: &str) -> String {
-        if path.starts_with("http") {
+        if path.starts_with("http://") || path.starts_with("https://") {
             path.to_string()
         } else if path.starts_with("/") {
             let url = self.url.trim_end_matches('/');
@@ -174,12 +239,52 @@ impl Server {
         let zip = zip::ZipArchive::new(std::io::Cursor::new(audio))
             .map_err(|e| anyhow::anyhow!("効果音の取得に失敗しました。: {}", e))?;
 
-        let mut data_raw = GzDecoder::new(&data_compressed[..]);
-        let mut buf = Vec::new();
-        data_raw.read_to_end(&mut buf).map_err(|e| anyhow::anyhow!("効果音の取得に失敗しました。: {}", e))?;
+        let buf = decompress_limited(&data_compressed[..])
+            .map_err(|e| anyhow::anyhow!("効果音の取得に失敗しました。: {}", e))?;
         let data = serde_json::from_slice::<EffectData>(&buf[..])
             .map_err(|e| anyhow::anyhow!("効果音の取得に失敗しました。: {}", e))?;
 
         Effect::new(data, zip)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn level_api_url_encodes_path_traversal() {
+        let url = level_api_url("https://example.com", "../../admin").unwrap();
+        assert_eq!(url.as_str(), "https://example.com/sonolus/levels/..%2F..%2Fadmin");
+    }
+
+    #[test]
+    fn level_api_url_encodes_query_injection() {
+        let url = level_api_url("https://example.com/", "abc?x=1#y").unwrap();
+        assert_eq!(url.as_str(), "https://example.com/sonolus/levels/abc%3Fx=1%23y");
+    }
+
+    #[test]
+    fn level_api_url_keeps_sub_path_of_server() {
+        let url = level_api_url("https://coconut.sonolus.com/next-sekai", "abc").unwrap();
+        assert_eq!(url.as_str(), "https://coconut.sonolus.com/next-sekai/sonolus/levels/abc");
+    }
+
+    #[test]
+    fn sanitize_cache_key_removes_path_separators() {
+        assert_eq!(sanitize_cache_key("../../etc/passwd"), "______etc_passwd");
+        assert_eq!(sanitize_cache_key("/absolute"), "_absolute");
+        assert_eq!(sanitize_cache_key("abc123-_"), "abc123-_");
+    }
+
+    #[test]
+    fn cache_path_stays_inside_cache_dir() {
+        let srl = Srl {
+            hash: Some("../../../../tmp/pwned".to_string()),
+            url: "/data".to_string(),
+        };
+        let key_source = srl.hash.clone().unwrap();
+        let key = sanitize_cache_key(&key_source);
+        assert!(!CACHE_DIR.join(key).starts_with("/tmp"));
     }
 }

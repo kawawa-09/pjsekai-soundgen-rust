@@ -1,8 +1,10 @@
 use crate::{
-    server::Server,
+    server::{read_body_limited, Server},
     sonolus::{LevelData, LevelInfo},
 };
 use anyhow::Result;
+
+const MAX_BGM_SIZE: usize = 512 * 1024 * 1024;
 
 pub struct Level {
     pub server: Server,
@@ -28,11 +30,9 @@ impl Level {
         }
 
         buf.append(
-            &mut bgm_response
-                .bytes()
+            &mut read_body_limited(bgm_response, MAX_BGM_SIZE)
                 .await
-                .map_err(|e| anyhow::anyhow!("BGMの取得に失敗しました。: {}", e))?
-                .to_vec(),
+                .map_err(|e| anyhow::anyhow!("BGMの取得に失敗しました。: {}", e))?,
         );
         Ok(())
     }

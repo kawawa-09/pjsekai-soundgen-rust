@@ -62,6 +62,25 @@ fn parse_args() -> Args {
     }
 }
 
+/// 譜面IDをファイル名として使う際に、dist外を指すパスにならないように変換する。
+fn sanitize_file_name(name: &str) -> String {
+    let sanitized: String = name
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    if sanitized.is_empty() {
+        "output".to_string()
+    } else {
+        sanitized.chars().take(128).collect()
+    }
+}
+
 async fn should_check_update() -> bool {
     let executable_path = process_path::get_executable_path().unwrap();
     let flag_path = executable_path.parent().unwrap().join(".update-check");
@@ -83,8 +102,13 @@ async fn check_update() {
     let mut file = File::create(flag_path).await.unwrap();
     let now = chrono::Local::now();
     file.write_all(now.to_rfc3339().as_bytes()).await.unwrap();
-    let octocrab = Octocrab::builder().build().unwrap();
-    let release = octocrab.repos("sevenc-nanashi", "pjsekai-soundgen-rust").releases().get_latest().await.unwrap();
+    let Ok(octocrab) = Octocrab::builder().build() else {
+        return;
+    };
+    let Ok(release) = octocrab.repos("sevenc-nanashi", "pjsekai-soundgen-rust").releases().get_latest().await else {
+        console::warning("更新の確認に失敗しました。");
+        return;
+    };
     let version = release.tag_name.trim_start_matches('v');
     let current_version = env!("CARGO_PKG_VERSION");
     if version != current_version {
@@ -208,8 +232,11 @@ async fn main() {
         final_bgm = bgm;
     }
     final_bgm = final_bgm.overlay_at(&merged_sounds, 0.0);
-    let output = args.output.unwrap_or(format!("dist/{}.mp3", name));
+    let output = args.output.unwrap_or_else(|| format!("dist/{}.mp3", sanitize_file_name(&name)));
     console::info("出力しています...");
-    final_bgm.export(output.as_str());
+    if let Err(err) = final_bgm.export(output.as_str()) {
+        console::error(&err.to_string());
+        std::process::exit(1);
+    }
     console::info(format!("完了しました：{}", output).as_str());
 }
