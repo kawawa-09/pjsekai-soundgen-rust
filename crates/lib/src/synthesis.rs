@@ -128,6 +128,16 @@ fn resolve_sound(effect: &Effect, canonical_name: &str) -> Option<Sound> {
     None
 }
 
+fn panic_message(payload: &(dyn std::any::Any + Send)) -> String {
+    if let Some(message) = payload.downcast_ref::<&str>() {
+        message.to_string()
+    } else if let Some(message) = payload.downcast_ref::<String>() {
+        message.clone()
+    } else {
+        "原因不明のエラー".to_string()
+    }
+}
+
 struct BpmChange {
     beat: f32,
     bpm: f32,
@@ -150,6 +160,7 @@ pub enum Progress {
     Info { threads: HashMap<String, ThreadInfo> },
     Update { id: String, current: i32 },
     Finish { id: String, sound: Sound },
+    Failed { message: String },
 }
 
 pub async fn get_sound_timings(level: &Level, offset: f32) -> Result<Timing> {
@@ -169,7 +180,8 @@ pub async fn get_sound_timings(level: &Level, offset: f32) -> Result<Timing> {
             });
         }
     }
-    bpm_changes.sort_by(|a, b| a.beat.partial_cmp(&b.beat).unwrap());
+    ensure!(!bpm_changes.is_empty(), "譜面データが壊れています：#BPM_CHANGEがありません");
+    bpm_changes.sort_by(|a, b| a.beat.total_cmp(&b.beat));
     let resolve_time = |beat: f32| -> f32 {
         let mut time = 0.0;
         let mut last_bpm = bpm_changes[0].bpm;
@@ -216,22 +228,15 @@ pub async fn get_sound_timings(level: &Level, offset: f32) -> Result<Timing> {
                 continue;
             };
             let Some(head_beat) = head.get_value("#BEAT") else {
-                eprintln!(
-                    "[診断] Connector: headに#BEATが無いためスキップします。(head archetype={})",
-                    head.archetype
-                );
+                eprintln!("[診断] Connector: headに#BEATが無いためスキップします。(head archetype={})", head.archetype);
                 continue;
             };
             let Some(tail_beat) = tail.get_value("#BEAT") else {
-                eprintln!(
-                    "[診断] Connector: tailに#BEATが無いためスキップします。(tail archetype={})",
-                    tail.archetype
-                );
+                eprintln!("[診断] Connector: tailに#BEATが無いためスキップします。(tail archetype={})", tail.archetype);
                 continue;
             };
 
-            let is_critical =
-                head.archetype.starts_with("Critical") || tail.archetype.starts_with("Critical");
+            let is_critical = head.archetype.starts_with("Critical") || tail.archetype.starts_with("Critical");
             let key = if is_critical {
                 "Sekai Critical Hold".to_string()
             } else {
@@ -287,7 +292,7 @@ pub async fn get_sound_timings(level: &Level, offset: f32) -> Result<Timing> {
             .map(|(time, changes)| (time, changes.map(|(_, change)| *change).collect::<Vec<_>>()))
             .collect::<Vec<_>>();
 
-        grouped_changes.sort_by(|(time1, _), (time2, _)| time1.partial_cmp(time2).unwrap());
+        grouped_changes.sort_by(|(time1, _), (time2, _)| time1.total_cmp(time2));
 
         for (time, changes) in &grouped_changes {
             if connect_timings.get(key).is_none() {
@@ -310,13 +315,14 @@ pub async fn get_sound_timings(level: &Level, offset: f32) -> Result<Timing> {
             ensure!(slide_count >= 0, "譜面データが壊れています：スライドの開始と終了の数が一致しません");
         }
         ensure!(slide_count == 0, "譜面データが壊れています：スライドの開始と終了の数が一致しません");
-        ensure!(
-            connect_timings.get(key).unwrap().last().unwrap().1 != -1.0,
-            "譜面データが壊れています：スライドの開始と終了の数が一致しません"
-        );
+        let last_timing = connect_timings
+            .get(key)
+            .and_then(|timings| timings.last())
+            .ok_or_else(|| anyhow::anyhow!("譜面データが壊れています：スライド「{}」の区間を特定できません", key))?;
+        ensure!(last_timing.1 != -1.0, "譜面データが壊れています：スライドの開始と終了の数が一致しません");
     }
     timings.values_mut().for_each(|v| {
-        v.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        v.sort_by(|a, b| a.total_cmp(b));
         v.dedup()
     });
 
@@ -333,21 +339,15 @@ pub async fn synthesis(timing: &Timing, effect: &Effect, notes_per_thread: usize
 
     thread::spawn(move || {
         let mut thread_infos: HashMap<String, ThreadInfo> = HashMap::new();
-        let mut threads: Vec<thread::JoinHandle<()>> = vec![];
+        let mut threads: Vec<(String, thread::JoinHandle<()>)> = vec![];
         for (sound_name, timings) in timing.single.iter() {
             // 正式名(sound_name)に対応する実際の効果音クリップを候補リストから解決する。
             // どの候補も effect.audio に存在しない場合はこのSEをスキップ（panicしない）。
             let Some(sound) = resolve_sound(&effect, sound_name) else {
-                eprintln!(
-                    "警告：不明なSEです：{}。このSEはスキップされます。Issueに報告してください。",
-                    sound_name
-                );
+                eprintln!("警告：不明なSEです：{}。このSEはスキップされます。Issueに報告してください。", sound_name);
                 continue;
             };
-            let color = COLOR_MAP
-                .get(sound_name.as_str())
-                .cloned()
-                .unwrap_or(ClipColor { fg: "gray", bg: "gray" });
+            let color = COLOR_MAP.get(sound_name.as_str()).cloned().unwrap_or(ClipColor { fg: "gray", bg: "gray" });
             let name = NAME_MAP.get(sound_name.as_str()).copied().unwrap_or(sound_name.as_str());
 
             let thread_count = (timings.len() + notes_per_thread - 1) / notes_per_thread;
@@ -373,34 +373,35 @@ pub async fn synthesis(timing: &Timing, effect: &Effect, notes_per_thread: usize
                         max: timings.len() as i32,
                     },
                 );
-                threads.push(thread::spawn(move || {
+                let thread_id = id.clone();
+                let handle = thread::spawn(move || {
                     thread::park();
                     let mut local_sound = Sound::empty(None);
                     for (i, time) in timings.iter().enumerate() {
                         let next_time = timings.get(i + 1).unwrap_or(&(*time + 5.0)).to_owned();
                         local_sound = local_sound.overlay_until(&sound, *time, next_time);
-                        tx.send(Progress::Update {
-                            id: id.clone(),
-                            current: i as i32 + 1,
-                        })
-                        .unwrap();
+                        // 受信側がいなくなっている場合は進捗を送る先がないので作業を中止する。
+                        if tx
+                            .send(Progress::Update {
+                                id: id.clone(),
+                                current: i as i32 + 1,
+                            })
+                            .is_err()
+                        {
+                            return;
+                        }
                     }
-                    tx.send(Progress::Finish { id, sound: local_sound }).unwrap();
-                }));
+                    let _ = tx.send(Progress::Finish { id, sound: local_sound });
+                });
+                threads.push((thread_id, handle));
             }
         }
         for (sound_name, timings) in timing.connect.iter() {
             let Some(sound) = resolve_sound(&effect, sound_name) else {
-                eprintln!(
-                    "警告：不明なSEです：{}。このSEはスキップされます。Issueに報告してください。",
-                    sound_name
-                );
+                eprintln!("警告：不明なSEです：{}。このSEはスキップされます。Issueに報告してください。", sound_name);
                 continue;
             };
-            let color = COLOR_MAP
-                .get(sound_name.as_str())
-                .cloned()
-                .unwrap_or(ClipColor { fg: "gray", bg: "gray" });
+            let color = COLOR_MAP.get(sound_name.as_str()).cloned().unwrap_or(ClipColor { fg: "gray", bg: "gray" });
             let name = NAME_MAP.get(sound_name.as_str()).copied().unwrap_or(sound_name.as_str());
 
             let timings = timings.clone();
@@ -415,23 +416,43 @@ pub async fn synthesis(timing: &Timing, effect: &Effect, notes_per_thread: usize
                     max: timings.len() as i32,
                 },
             );
-            threads.push(thread::spawn(move || {
+            let thread_id = id.clone();
+            let handle = thread::spawn(move || {
                 thread::park();
                 let mut local_sound = Sound::empty(None);
                 for (i, (start, end)) in timings.iter().enumerate() {
                     local_sound = local_sound.overlay_loop(&sound, start.to_owned(), end.to_owned());
-                    tx.send(Progress::Update {
-                        id: id.clone(),
-                        current: i as i32 + 1,
-                    })
-                    .unwrap();
+                    if tx
+                        .send(Progress::Update {
+                            id: id.clone(),
+                            current: i as i32 + 1,
+                        })
+                        .is_err()
+                    {
+                        return;
+                    }
                 }
-                tx.send(Progress::Finish { id, sound: local_sound }).unwrap();
-            }));
+                let _ = tx.send(Progress::Finish { id, sound: local_sound });
+            });
+            threads.push((thread_id, handle));
         }
-        tx.send(Progress::Info { threads: thread_infos }).unwrap();
-        for thread in threads {
+        if tx.send(Progress::Info { threads: thread_infos }).is_err() {
+            return;
+        }
+        for (_, thread) in threads.iter() {
             thread.thread().unpark();
+        }
+        // 合成スレッドのpanicを黙って消さず、呼び出し元に伝達する。
+        for (id, thread) in threads {
+            if let Err(payload) = thread.join() {
+                let _ = tx.send(Progress::Failed {
+                    message: format!(
+                        "「{}」の合成スレッドが異常終了しました。: {}",
+                        id,
+                        panic_message(payload.as_ref())
+                    ),
+                });
+            }
         }
     });
 

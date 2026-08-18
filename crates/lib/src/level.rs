@@ -24,7 +24,7 @@ impl Level {
             .map_err(|e| anyhow::anyhow!("BGMの取得に失敗しました。: {}", e))?;
 
         if !bgm_response.status().is_success() {
-            return Err(anyhow::anyhow!("BGMの取得に失敗しました。"));
+            return Err(anyhow::anyhow!("BGMの取得に失敗しました。（HTTP {}）", bgm_response.status()));
         }
 
         buf.append(
